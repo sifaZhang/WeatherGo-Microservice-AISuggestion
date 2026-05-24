@@ -1,0 +1,1 @@
+# WeatherGo-Microservice-AISuggestion
