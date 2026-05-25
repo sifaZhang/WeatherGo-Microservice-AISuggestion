@@ -2,7 +2,14 @@ import os
 
 import flask
 from dotenv import load_dotenv
-from groq import Groq
+from groq import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    AuthenticationError,
+    Groq,
+    RateLimitError,
+)
 from groq.types.chat import ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam
 
 load_dotenv()
@@ -10,6 +17,14 @@ load_dotenv()
 app = flask.Flask(__name__)
 
 GROQ_MODEL = "llama-3.1-8b-instant"
+GROQ_TIMEOUT_SECONDS = 10.0
+
+
+class RecommendationServiceError(Exception):
+    def __init__(self, message, status_code):
+        super().__init__(message)
+        self.message = message
+        self.status_code = status_code
 
 
 @app.route('/')
@@ -72,28 +87,60 @@ def build_prompt(location, weather, temperature, places):
 
 def generate_recommendation(prompt):
     if not os.getenv("GROQ_API_KEY"):
-        raise RuntimeError("GROQ_API_KEY environment variable is not configured")
+        raise RecommendationServiceError(
+            "GROQ_API_KEY environment variable is not configured",
+            500,
+        )
 
-    client = Groq()
-    completion = client.chat.completions.create(
-        model=GROQ_MODEL,
-        messages=[
-            ChatCompletionSystemMessageParam(
-                role="system",
-                content="You generate concise, practical local activity recommendations.",
-            ),
-            ChatCompletionUserMessageParam(
-                role="user",
-                content=prompt,
-            ),
-        ],
-        temperature=0.7,
-        max_completion_tokens=300,
-    )
+    try:
+        client = Groq(timeout=GROQ_TIMEOUT_SECONDS)
+        completion = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                ChatCompletionSystemMessageParam(
+                    role="system",
+                    content="You generate concise, practical local activity recommendations.",
+                ),
+                ChatCompletionUserMessageParam(
+                    role="user",
+                    content=prompt,
+                ),
+            ],
+            temperature=0.7,
+            max_completion_tokens=300,
+        )
+    except APITimeoutError as error:
+        raise RecommendationServiceError(
+            "Groq request timed out. Please try again later.",
+            504,
+        ) from error
+    except RateLimitError as error:
+        raise RecommendationServiceError(
+            "Groq rate limit exceeded. Please try again later.",
+            429,
+        ) from error
+    except AuthenticationError as error:
+        raise RecommendationServiceError(
+            "Groq API key is invalid or not configured correctly.",
+            500,
+        ) from error
+    except APIConnectionError as error:
+        raise RecommendationServiceError(
+            "Unable to connect to Groq. Please try again later.",
+            503,
+        ) from error
+    except APIStatusError as error:
+        raise RecommendationServiceError(
+            "Groq service returned an error. Please try again later.",
+            502,
+        ) from error
 
     recommendation = completion.choices[0].message.content
     if not recommendation or not recommendation.strip():
-        raise RuntimeError("Groq returned an empty recommendation")
+        raise RecommendationServiceError(
+            "Groq returned an empty recommendation.",
+            502,
+        )
 
     return recommendation.strip()
 
@@ -115,8 +162,8 @@ def generate():
 
     try:
         recommendation = generate_recommendation(prompt)
-    except RuntimeError as error:
-        return flask.jsonify({"error": str(error)}), 500
+    except RecommendationServiceError as error:
+        return flask.jsonify({"error": error.message}), error.status_code
     except Exception:
         return flask.jsonify({"error": "Failed to generate recommendation"}), 502
 
