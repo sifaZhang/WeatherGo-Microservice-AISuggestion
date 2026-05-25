@@ -18,6 +18,20 @@ pip install -r requirements.txt
 python app.py
 ```
 
+## Docker
+
+Build the image:
+
+```bash
+docker build -t weathergo-ai-suggestion .
+```
+
+Run the container on port 5001:
+
+```bash
+docker run --env-file .env -p 5001:5001 weathergo-ai-suggestion
+```
+
 ## API
 
 ### Health Check
