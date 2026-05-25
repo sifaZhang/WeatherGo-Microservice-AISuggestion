@@ -180,4 +180,6 @@ def generate():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001, host='0.0.0.0')
+    port = int(os.getenv("PORT", "5001"))
+    debug = os.getenv("FLASK_DEBUG", "0") == "1"
+    app.run(debug=debug, port=port, host='0.0.0.0')
