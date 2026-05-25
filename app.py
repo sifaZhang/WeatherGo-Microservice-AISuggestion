@@ -1,6 +1,14 @@
+import os
+
 import flask
+from dotenv import load_dotenv
+from groq import Groq
+
+load_dotenv()
 
 app = flask.Flask(__name__)
+
+GROQ_MODEL = "llama-3.1-8b-instant"
 
 
 @app.route('/')
@@ -61,6 +69,34 @@ def build_prompt(location, weather, temperature, places):
     )
 
 
+def generate_recommendation(prompt):
+    if not os.getenv("GROQ_API_KEY"):
+        raise RuntimeError("GROQ_API_KEY environment variable is not configured")
+
+    client = Groq()
+    completion = client.chat.completions.create(
+        model=GROQ_MODEL,
+        messages=[
+            {
+                "role": "system",
+                "content": "You generate concise, practical local activity recommendations.",
+            },
+            {
+                "role": "user",
+                "content": prompt,
+            },
+        ],
+        temperature=0.7,
+        max_completion_tokens=300,
+    )
+
+    recommendation = completion.choices[0].message.content
+    if not recommendation or not recommendation.strip():
+        raise RuntimeError("Groq returned an empty recommendation")
+
+    return recommendation.strip()
+
+
 @app.route('/generate', methods=['POST'])
 def generate():
     data = flask.request.get_json(silent=True)
@@ -76,8 +112,16 @@ def generate():
         data["places"],
     )
 
+    try:
+        recommendation = generate_recommendation(prompt)
+    except RuntimeError as error:
+        return flask.jsonify({"error": str(error)}), 500
+    except Exception:
+        return flask.jsonify({"error": "Failed to generate recommendation"}), 502
+
     return flask.jsonify({
-        "prompt": prompt,
+        "recommendation": recommendation,
+        "model": GROQ_MODEL,
         "input": {
             "location": data["location"].strip(),
             "weather": data["weather"].strip(),
