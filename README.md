@@ -74,3 +74,18 @@ Error response:
   "error": "Missing required field: weather"
 }
 ```
+
+Groq-related errors are returned as JSON instead of crashing the service:
+
+```json
+{
+  "error": "Groq request timed out. Please try again later."
+}
+```
+
+Common Groq error status codes:
+
+- `429`: Groq rate limit exceeded
+- `502`: Groq service returned an error or an empty recommendation
+- `503`: Unable to connect to Groq
+- `504`: Groq request timed out
