@@ -3,6 +3,7 @@ import os
 import flask
 from dotenv import load_dotenv
 from groq import Groq
+from groq.types.chat import ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam
 
 load_dotenv()
 
@@ -77,14 +78,14 @@ def generate_recommendation(prompt):
     completion = client.chat.completions.create(
         model=GROQ_MODEL,
         messages=[
-            {
-                "role": "system",
-                "content": "You generate concise, practical local activity recommendations.",
-            },
-            {
-                "role": "user",
-                "content": prompt,
-            },
+            ChatCompletionSystemMessageParam(
+                role="system",
+                content="You generate concise, practical local activity recommendations.",
+            ),
+            ChatCompletionUserMessageParam(
+                role="user",
+                content=prompt,
+            ),
         ],
         temperature=0.7,
         max_completion_tokens=300,
