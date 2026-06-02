@@ -68,6 +68,15 @@ Expected response:
 }
 ```
 
+## CI/CD
+
+The GitHub Actions workflow runs on pushes to `main`. It installs dependencies,
+runs the test suite, builds the Docker image, and then triggers a Render deploy
+hook after the build succeeds.
+
+Configure the deploy hook URL as a GitHub Actions repository secret named
+`RENDER_DEPLOY_HOOK_URL`. Do not commit the Render hook URL to the repository.
+
 ## Docker
 
 Build the image:

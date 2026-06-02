@@ -29,3 +29,15 @@ jobs:
       - name: Build Docker image
         run: |
           docker build -t weathergo-ai-suggestion .
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Trigger Render deployment
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          curl --fail --silent --show-error "$RENDER_DEPLOY_HOOK_URL"
